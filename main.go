@@ -90,9 +90,7 @@ func handleClient(clientConn net.Conn) {
 	clientIP := strings.Split(clientAddr, ":")[0]
 	if !isAllowedIP(clientIP) {
 		log.Printf("Connection from %s denied (IP not allowed)", clientIP)
-		clientConn.Write([]byte("HTTP/1.1 403 Forbidden
-
-"))
+		clientConn.Write([]byte("HTTP/1.1 403 Forbidden"))
 		return
 	}
 
