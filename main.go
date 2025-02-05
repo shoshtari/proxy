@@ -11,10 +11,19 @@ import (
 	"strings"
 )
 
+var proxyAddr = ":4040"
+var user = "user"
+var password = "password"
+
 func main() {
-	proxyAddr := os.Getenv("PROXY_ADDR")
-	if proxyAddr == "" {
-		proxyAddr = ":4040"
+	if tmp := os.Getenv("PROXY_USER"); tmp != "" {
+		proxyAddr = tmp
+	}
+	if tmp := os.Getenv("PROXY_USER"); tmp != "" {
+		user = tmp
+	}
+	if tmp := os.Getenv("PROXY_PASSWORD"); tmp != "" {
+		password = tmp
 	}
 
 	listener, err := net.Listen("tcp", proxyAddr)
@@ -85,7 +94,7 @@ func authenticate(request *http.Request) bool {
 	}
 
 	username, password := credentials[0], credentials[1]
-	return username == "user" && password == "password"
+	return username == username && password == password
 }
 
 func handleConnect(clientConn net.Conn, request *http.Request) {
