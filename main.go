@@ -93,8 +93,7 @@ func authenticate(request *http.Request) bool {
 		return false
 	}
 
-	username, password := credentials[0], credentials[1]
-	return username == username && password == password
+	return user == credentials[0] && password == credentials[1]
 }
 
 func handleConnect(clientConn net.Conn, request *http.Request) {
