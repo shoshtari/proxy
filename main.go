@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/base64"
 	"io"
 	"log"
 	"net"
@@ -11,13 +12,11 @@ import (
 )
 
 func main() {
-	// Get the proxy address from environment variables, default to :4040
 	proxyAddr := os.Getenv("PROXY_ADDR")
 	if proxyAddr == "" {
 		proxyAddr = ":4040"
 	}
 
-	// Start the proxy server
 	listener, err := net.Listen("tcp", proxyAddr)
 	if err != nil {
 		log.Fatalf("Failed to start proxy: %v", err)
@@ -27,14 +26,11 @@ func main() {
 	log.Printf("Proxy server is running on %s\n", proxyAddr)
 
 	for {
-		// Accept incoming client connections
 		clientConn, err := listener.Accept()
 		if err != nil {
 			log.Printf("Failed to accept client connection: %v", err)
 			continue
 		}
-
-		// Handle each connection in a separate goroutine
 		go handleClient(clientConn)
 	}
 }
@@ -42,11 +38,9 @@ func main() {
 func handleClient(clientConn net.Conn) {
 	defer clientConn.Close()
 
-	// Log the client connection
 	clientAddr := clientConn.RemoteAddr().String()
 	log.Printf("New connection from: %s\n", clientAddr)
 
-	// Read the client's request
 	reader := bufio.NewReader(clientConn)
 	request, err := http.ReadRequest(reader)
 	if err != nil {
@@ -54,10 +48,14 @@ func handleClient(clientConn net.Conn) {
 		return
 	}
 
-	// Log the request details
+	if !authenticate(request) {
+		clientConn.Write([]byte("HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"Proxy\"\r\n\r\n"))
+		log.Printf("Authentication failed for %s\n", clientAddr)
+		return
+	}
+
 	log.Printf("Request from %s: %s %s\n", clientAddr, request.Method, request.URL)
 
-	// Check if the request is a CONNECT request (for HTTPS)
 	if request.Method == http.MethodConnect {
 		handleConnect(clientConn, request)
 	} else {
@@ -65,17 +63,39 @@ func handleClient(clientConn net.Conn) {
 	}
 }
 
-func handleConnect(clientConn net.Conn, request *http.Request) {
-	// Extract the target address from the CONNECT request
-	targetAddr := request.URL.Host
-	if !strings.Contains(targetAddr, ":") {
-		targetAddr += ":443" // Default to port 443 for HTTPS
+func authenticate(request *http.Request) bool {
+	auth := request.Header.Get("Proxy-Authorization")
+	if auth == "" {
+		return false
 	}
 
-	// Log the CONNECT request
+	const prefix = "Basic "
+	if !strings.HasPrefix(auth, prefix) {
+		return false
+	}
+
+	payload, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return false
+	}
+
+	credentials := strings.SplitN(string(payload), ":", 2)
+	if len(credentials) != 2 {
+		return false
+	}
+
+	username, password := credentials[0], credentials[1]
+	return username == "user" && password == "password"
+}
+
+func handleConnect(clientConn net.Conn, request *http.Request) {
+	targetAddr := request.URL.Host
+	if !strings.Contains(targetAddr, ":") {
+		targetAddr += ":443"
+	}
+
 	log.Printf("CONNECT request to: %s\n", targetAddr)
 
-	// Connect to the target server
 	targetConn, err := net.Dial("tcp", targetAddr)
 	if err != nil {
 		log.Printf("Failed to connect to target %s: %v\n", targetAddr, err)
@@ -84,25 +104,20 @@ func handleConnect(clientConn net.Conn, request *http.Request) {
 	}
 	defer targetConn.Close()
 
-	// Send a 200 Connection Established response to the client
 	clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
-	// Start tunneling data between the client and the target server
 	go io.Copy(targetConn, clientConn)
 	io.Copy(clientConn, targetConn)
 }
 
 func handleHTTP(clientConn net.Conn, request *http.Request) {
-	// Forward the HTTP request to the target server
 	targetAddr := request.URL.Host
 	if !strings.Contains(targetAddr, ":") {
-		targetAddr += ":80" // Default to port 80 for HTTP
+		targetAddr += ":80"
 	}
 
-	// Log the HTTP request
 	log.Printf("HTTP request to: %s\n", targetAddr)
 
-	// Connect to the target server
 	targetConn, err := net.Dial("tcp", targetAddr)
 	if err != nil {
 		log.Printf("Failed to connect to target %s: %v\n", targetAddr, err)
@@ -111,13 +126,11 @@ func handleHTTP(clientConn net.Conn, request *http.Request) {
 	}
 	defer targetConn.Close()
 
-	// Forward the request to the target server
 	err = request.Write(targetConn)
 	if err != nil {
 		log.Printf("Failed to forward request to %s: %v\n", targetAddr, err)
 		return
 	}
 
-	// Forward the response from the target server to the client
 	io.Copy(clientConn, targetConn)
 }
