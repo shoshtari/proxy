@@ -68,8 +68,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	log.Printf("Proxy server is running on %s
-", proxyAddr)
+	log.Printf("Proxy server is running on %s", proxyAddr)
 
 	for {
 		clientConn, err := listener.Accept()
@@ -85,8 +84,7 @@ func handleClient(clientConn net.Conn) {
 	defer clientConn.Close()
 
 	clientAddr := clientConn.RemoteAddr().String()
-	log.Printf("New connection from: %s
-", clientAddr)
+	log.Printf("New connection from: %s", clientAddr)
 
 	// IP filtering check
 	clientIP := strings.Split(clientAddr, ":")[0]
@@ -106,8 +104,7 @@ func handleClient(clientConn net.Conn) {
 	}
 
 	if !authenticate(request) {
-		clientConn.Write([]byte("HTTP/1.1 407 Proxy Authentication Required
-Proxy-Authenticate: Basic realm=\"Proxy\"\r\n\r\n"))
+		clientConn.Write([]byte("HTTP/1.1 407 Proxy Authentication Required Proxy-Authenticate: Basic realm=\"Proxy\"\r\n\r\n"))
 		log.Printf("Authentication failed for %s", clientAddr)
 		return
 	}
