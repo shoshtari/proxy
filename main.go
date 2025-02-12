@@ -13,13 +13,13 @@ import (
 )
 
 var (
-	proxyAddr     = ":4040"
-	user          = "user"
-	password      = "password"
-	enableSSL      = false
-	certFile       = "server.crt"
-	keyFile        = "server.key"
-	allowedIPs     = []string{"127.0.0.1"}
+	proxyAddr  = ":4040"
+	user       = "user"
+	password   = "password"
+	enableSSL  = false
+	certFile   = "server.crt"
+	keyFile    = "server.key"
+	allowedIPs = []string{"127.0.0.1"}
 )
 
 func main() {
@@ -118,7 +118,7 @@ func handleClient(clientConn net.Conn) {
 
 func isAllowedIP(clientIP string) bool {
 	for _, allowedIP := range allowedIPs {
-		if clientIP == allowedIP {
+		if clientIP == allowedIP || allowedIP == "*" {
 			return true
 		}
 	}
@@ -195,4 +195,3 @@ func handleHTTP(clientConn net.Conn, request *http.Request) {
 
 	io.Copy(clientConn, targetConn)
 }
-
